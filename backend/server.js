@@ -7,6 +7,10 @@ dotenv.config();
 
 const app = express();
 
+// Import routes (ADD THESE LINES)
+const auth = require('./routes/auth');
+const marksRoutes = require('./routes/marks');
+
 // CORS configuration - Allow multiple origins
 const allowedOrigins = [
   'http://localhost:5173',
@@ -52,7 +56,7 @@ app.use((req, res, next) => {
 });
 
 // Your routes
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', auth);
 app.use('/api/marks', marksRoutes);
 
 // Health check endpoint
@@ -78,8 +82,17 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`✅ CORS enabled for origins:`, allowedOrigins);
-});
+// MongoDB connection (ADD THIS IF NOT PRESENT)
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/marks-tracker')
+  .then(() => {
+    console.log('✅ MongoDB connected successfully');
+    const PORT = process.env.PORT || 5000;
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`✅ CORS enabled for origins:`, allowedOrigins);
+    });
+  })
+  .catch(err => {
+    console.error('❌ MongoDB connection error:', err);
+    process.exit(1);
+  });
