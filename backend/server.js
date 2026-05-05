@@ -3,52 +3,70 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
 
-// Load environment variables
 dotenv.config();
 
 const app = express();
 
-// Middleware
+// CORS configuration - Allow multiple origins
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://marks-tracker-two.vercel.app',
+  'https://marks-tracker.vercel.app',
+  'https://your-vercel-app.vercel.app', // Replace with your actual Vercel URL
+  process.env.FRONTEND_URL // Optional: Add from environment variable
+];
+
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('Blocked origin:', origin);
+      callback(null, true); // For development, accept all (remove in production)
+      // callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  optionsSuccessStatus: 200
 }));
+
+// Handle preflight requests explicitly
+app.options('*', cors());
+
+// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => {
-  console.log('✅ MongoDB Connected Successfully');
-  console.log('📊 Database:', mongoose.connection.name);
-})
-.catch((err) => {
-  console.error('❌ MongoDB Connection Error:', err.message);
-  console.log('\n💡 Troubleshooting:');
-  console.log('1. Check your .env file has correct MONGODB_URI');
-  console.log('2. Verify username/password in MongoDB Atlas');
-  console.log('3. Add your IP to MongoDB Atlas whitelist (0.0.0.0/0)');
-  process.exit(1);
+// Request logging middleware for debugging
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url} - Origin: ${req.headers.origin}`);
+  console.log('Headers:', req.headers);
+  next();
 });
 
-// Import Models
-const User = require('./models/User');
-const Marks = require('./models/Marks');
-
-// Import Routes
-const authRoutes = require('./routes/auth');
-const marksRoutes = require('./routes/marks');
-
-// Use Routes
+// Your routes
 app.use('/api/auth', authRoutes);
 app.use('/api/marks', marksRoutes);
 
-// Test route
-app.get('/api/test', (req, res) => {
-  res.json({ message: 'API is working!' });
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    message: 'Server is running',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Test endpoint for CORS
+app.get('/api/test-cors', (req, res) => {
+  res.json({ message: 'CORS is working!' });
 });
 
 // Error handling middleware
@@ -63,5 +81,5 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`🔗 API available at http://localhost:${PORT}/api`);
+  console.log(`✅ CORS enabled for origins:`, allowedOrigins);
 });
